@@ -3,7 +3,7 @@ name: Deploy · Web (no Docker)
 # 不使用 Docker：runner 上构建 Nuxt 产物 .output 并暂存成 deploy/web（含 pm2 配置），
 # 再由 easingthemes/ssh-deploy 通过 rsync over SSH 同步到服务器并远程重启 pm2
 # 需要的仓库配置（Settings → Secrets and variables → Actions）：
-#   secrets.SERVER_SSH_KEY  SSH 私钥（PEM 格式，无 passphrase）
+#   secrets.DEPLOY_SSH_KEY  SSH 私钥（PEM 格式，无 passphrase）
 #   secrets.DEPLOY_HOST     服务器地址
 #   secrets.DEPLOY_USER     SSH 用户名
 #   secrets.DEPLOY_PORT     SSH 端口（可选，默认 22）
@@ -64,7 +64,7 @@ jobs:
       - name: Deploy via rsync + remote restart
         uses: easingthemes/ssh-deploy@v6.0.3
         with:
-          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
           REMOTE_USER: ${{ secrets.DEPLOY_USER }}
           REMOTE_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
