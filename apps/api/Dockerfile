@@ -16,7 +16,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
-# 在构建阶段完成 esbuild 打包，并裁剪生产依赖
+# 在构建阶段完成 tsdown 打包，并裁剪生产依赖
 FROM deps AS build
 COPY packages/db packages/db
 COPY apps/api apps/api

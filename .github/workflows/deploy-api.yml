@@ -1,6 +1,6 @@
 name: Deploy · API (no Docker)
 
-# 不使用 Docker：runner 上完成依赖安装 + tsup 打包 + pnpm deploy 产出自包含目录，
+# 不使用 Docker：runner 上完成依赖安装 + tsdown 打包 + pnpm deploy 产出自包含目录，
 # 再由 easingthemes/ssh-deploy 通过 rsync over SSH 同步到服务器并远程重启（服务器不装依赖、不跑源码）
 # 需要的仓库配置（Settings → Secrets and variables → Actions）：
 #   secrets.DEPLOY_SSH_KEY  SSH 私钥（PEM 格式，无 passphrase）
@@ -49,7 +49,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # tsup 把 TS 源码（含 packages/db）打包成 dist/index.mjs + dist/migrate.mjs + dist/seed.mjs，
+      # tsdown 把 TS 源码（含 packages/db）打包成 dist/index.mjs + dist/migrate.mjs + dist/seed.mjs，
       # drizzle 迁移 SQL 拷贝到 apps/api/drizzle；fastify/pg/drizzle-orm 等保持 external
       - name: Build API bundle
         run: pnpm --filter @resume/api build

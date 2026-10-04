@@ -1,5 +1,5 @@
 // 非 Docker 部署用的 pm2 进程定义（API）
-// 运行的是 esbuild 打包后的产物 dist/index.mjs（部署目录自带 node_modules）
+// 运行的是 tsdown 打包后的产物 dist/index.mjs（部署目录自带 node_modules）
 // DATABASE_URL 等敏感变量放在服务器上的部署目录/.env，由 dotenv 从 cwd 加载
 module.exports = {
   apps: [

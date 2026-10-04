@@ -80,7 +80,7 @@ jobs:
       - name: Seed database
         run: pnpm db:seed
 
-      - name: Build API bundle (tsup)
+      - name: Build API bundle (tsdown)
         run: pnpm --filter @resume/api build
 
       - name: Boot API (dist) and smoke test /health

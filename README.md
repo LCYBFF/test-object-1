@@ -31,7 +31,7 @@
 │   │   │   ├── env.ts           # 读取 PORT / HOST / NODE_ENV
 │   │   │   ├── index.ts         # 启动入口 + 优雅退出
 │   │   │   └── routes/          # /health、/api/profile、/api/resume
-│   │   ├── tsup.config.ts       # 打包为 dist/index.mjs、dist/migrate.mjs
+│   │   ├── tsdown.config.ts     # 打包为 dist/index.mjs、dist/migrate.mjs
 │   │   ├── ecosystem.config.cjs # 非 Docker 部署的 pm2 进程定义
 │   │   └── Dockerfile
 │   └── web/                 # Nuxt 4
@@ -183,11 +183,11 @@ API 与 Web 使用**相互独立的 workflow**，各自按改动路径触发（�
 
 | Workflow | 触发 | 做什么 |
 | --- | --- | --- |
-| `ci-api.yml` | `apps/api/**` 或 `packages/db/**` 等改动 | 装依赖 → `db` + `api` 类型检查 → 迁移漂移检查 → 迁移 + 种子（Postgres service）→ tsup 打包 → 启动产物冒烟测试 `/health` |
+| `ci-api.yml` | `apps/api/**` 或 `packages/db/**` 等改动 | 装依赖 → `db` + `api` 类型检查 → 迁移漂移检查 → 迁移 + 种子（Postgres service）→ tsdown 打包 → 启动产物冒烟测试 `/health` |
 | `ci-web.yml` | `apps/web/**` 等改动 | 装依赖 → `nuxt prepare` + `vue-tsc` 类型检查 → `nuxt build` |
 | `cd-api.yml` | `apps/api/**` / `packages/db/**` 改动、`v*` tag 或手动 | 构建 API 镜像并推送 GHCR（`ghcr.io/<owner>/<repo>/api`） |
 | `cd-web.yml` | `apps/web/**` 改动、`v*` tag 或手动 | 构建 Web 镜像并推送 GHCR（`ghcr.io/<owner>/<repo>/web`） |
-| `deploy-api.yml` | `apps/api/**` / `packages/db/**` 改动或手动 | **不使用 Docker**：runner 上安装依赖 + tsup 打包 + `pnpm deploy` 产出自包含目录 → `ssh-deploy`（rsync over SSH）同步 → 服务器仅 `node` 迁移 + pm2 重启 `resume-api` |
+| `deploy-api.yml` | `apps/api/**` / `packages/db/**` 改动或手动 | **不使用 Docker**：runner 上安装依赖 + tsdown 打包 + `pnpm deploy` 产出自包含目录 → `ssh-deploy`（rsync over SSH）同步 → 服务器仅 `node` 迁移 + pm2 重启 `resume-api` |
 | `deploy-web.yml` | `apps/web/**` 改动或手动 | **不使用 Docker**：runner 上 `nuxt build` → 暂存产物 → `ssh-deploy`（rsync over SSH）同步 → pm2 重启 `resume-web` |
 
 > `main` / `master` 分支均会触发；所有 workflow 都支持 `workflow_dispatch` 手动触发（可绕过路径过滤强制运行）。`ci-*.yml` 配置了 `concurrency`（同分支新推送会取消旧运行），`deploy-*.yml` 则不取消（`cancel-in-progress: false`，避免打断进行中的发布）。
@@ -198,7 +198,7 @@ API 与 Web 使用**相互独立的 workflow**，各自按改动路径触发（�
 
 **编译与依赖都发生在 runner 上**，服务器只接收产物、不做 `pnpm install` 也不跑 TS 源码：
 
-- **API**：`pnpm --filter @resume/api build` 用 tsup（esbuild 封装）把 TS 源码（含 `packages/db`）打包成 `dist/index.mjs`、`dist/migrate.mjs`（运行时依赖 fastify/pg/drizzle-orm 保持 external），再 `pnpm --filter @resume/api deploy --legacy --prod deploy/api` 把包 + 生产依赖平铺成自包含目录；随后 rsync 同步
+- **API**：`pnpm --filter @resume/api build` 用 tsdown（Rolldown 封装）把 TS 源码（含 `packages/db`）打包成 `dist/index.mjs`、`dist/migrate.mjs`（运行时依赖 fastify/pg/drizzle-orm 保持 external），再 `pnpm --filter @resume/api deploy --legacy --prod deploy/api` 把包 + 生产依赖平铺成自包含目录；随后 rsync 同步
 - **Web**：`nuxt build` 产出 `.output`（自带运行时依赖），暂存为 `deploy/web`（含 `ecosystem.config.cjs`）后 rsync 同步
 
 `ARGS` 使用 `-rlgoDzvc -i --delete`：`--delete` 让远端目录与本地严格一致（清理旧产物），`EXCLUDE: ".env"` 保证服务器上的 `.env` 不被覆盖或删除。`SCRIPT_AFTER_REQUIRED: "true"` 让远程迁移/重启失败时 job 一并失败（该参数默认不生效，必须显式设置）。

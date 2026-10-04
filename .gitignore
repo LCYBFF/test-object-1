@@ -12,7 +12,7 @@ dist/
 .nitro/
 .cache/
 deploy/
-# 构建产物：由 tsup 从 packages/db/drizzle 拷贝而来，源文件（迁移）必须提交
+# 构建产物：由 tsdown 从 packages/db/drizzle 拷贝而来，源文件（迁移）必须提交
 apps/api/drizzle/
 
 # env

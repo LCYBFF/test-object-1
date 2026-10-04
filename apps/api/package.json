@@ -8,7 +8,7 @@
     "start": "node dist/index.mjs",
     "start:dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "build": "tsup",
+    "build": "tsdown --config-loader tsx",
     "migrate": "node dist/migrate.mjs",
     "seed": "node dist/seed.mjs"
   },
@@ -27,7 +27,7 @@
   ],
   "devDependencies": {
     "@types/node": "catalog:",
-    "tsup": "catalog:",
+    "tsdown": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:"
   }
