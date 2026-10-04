@@ -1,0 +1,99 @@
+name: CI · API
+
+# 只关心 API 及其依赖（packages/db）相关的改动，Web 改动不会触发本流程
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "apps/api/**"
+      - "packages/db/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - ".github/workflows/ci-api.yml"
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "packages/db/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - ".github/workflows/ci-api.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-api-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API · typecheck / migrate / smoke
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: root
+          POSTGRES_DB: resume
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U root -d resume"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://root:root@localhost:5432/resume
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (db + api)
+        run: pnpm --filter @resume/db --filter @resume/api run typecheck
+
+      - name: Migration drift check
+        run: pnpm db:generate && git diff --exit-code -- packages/db/drizzle
+
+      - name: Run migrations
+        run: pnpm db:migrate
+
+      - name: Seed database
+        run: pnpm db:seed
+
+      - name: Build API bundle (tsup)
+        run: pnpm --filter @resume/api build
+
+      - name: Boot API (dist) and smoke test /health
+        run: |
+          pnpm --filter @resume/api start > api.log 2>&1 &
+          for _ in $(seq 1 30); do
+            if curl -sf http://localhost:3001/health > /dev/null; then
+              echo "API is up:"
+              curl -s http://localhost:3001/health
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start within 30s, logs:"
+          cat api.log
+          exit 1

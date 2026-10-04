@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/.output
+**/.nuxt
+**/.nitro
+**/.data
+.pnpm-store
+.pnpm-state
+.pnpm-cache
+install.log
+.git
+.github
+.env
+.env.*
+*.log
+README.md

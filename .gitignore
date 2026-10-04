@@ -1,0 +1,43 @@
+# dependencies
+node_modules/
+.pnpm-store
+.pnpm-state
+.pnpm-cache
+
+# builds
+dist/
+.output/
+.nuxt/
+.data/
+.nitro/
+.cache/
+deploy/
+# 构建产物：由 tsup 从 packages/db/drizzle 拷贝而来，源文件（迁移）必须提交
+apps/api/drizzle/
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs & os
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+
+# editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# tests
+coverage/
+
+# caches
+*.tsbuildinfo
+.eslintcache
+
+# *.bak
+*.bak

@@ -1,0 +1,26 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 10 默认拦截依赖的构建脚本，这里显式放行 esbuild（Vite/Nuxt/drizzle-kit 依赖）
+onlyBuiltDependencies:
+  - esbuild
+
+# 集中管理全仓库依赖版本：各子包通过 "catalog:" 引用，避免版本漂移
+catalog:
+  # 运行时依赖
+  fastify: ^5.12.5
+  "@fastify/cors": ^11.3.0
+  nuxt: ^4.5.2
+  vue: ^3.5.43
+  drizzle-orm: ^0.45.3
+  pg: ^8.23.1
+  dotenv: ^18.0.5
+  # 工具链
+  typescript: ^6.0.3
+  vue-tsc: ^3.3.12
+  drizzle-kit: ^0.31.11
+  tsx: ^4.23.15
+  tsup: ^8.0.0
+  "@types/node": ^22.20.5
+  "@types/pg": ^8.23.1

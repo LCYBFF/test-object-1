@@ -1,0 +1,84 @@
+name: Deploy · API (no Docker)
+
+# 不使用 Docker：runner 上完成依赖安装 + tsup 打包 + pnpm deploy 产出自包含目录，
+# 再由 easingthemes/ssh-deploy 通过 rsync over SSH 同步到服务器并远程重启（服务器不装依赖、不跑源码）
+# 需要的仓库配置（Settings → Secrets and variables → Actions）：
+#   secrets.SERVER_SSH_KEY  SSH 私钥（PEM 格式，无 passphrase）
+#   secrets.DEPLOY_HOST     服务器地址
+#   secrets.DEPLOY_USER     SSH 用户名
+#   secrets.DEPLOY_PORT     SSH 端口（可选，默认 22）
+#   vars.API_DEPLOY_DIR     服务器上部署目录，如 /opt/resume
+# 服务器前置：Node 22 + pm2 + rsync（在非交互式 SSH 的 PATH 中），并在 $API_DEPLOY_DIR/.env 配置 DATABASE_URL
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "apps/api/**"
+      - "packages/db/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/deploy-api.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy API over SSH + pm2
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # tsup 把 TS 源码（含 packages/db）打包成 dist/index.mjs + dist/migrate.mjs，
+      # drizzle 迁移 SQL 拷贝到 apps/api/drizzle；fastify/pg/drizzle-orm 等保持 external
+      - name: Build API bundle
+        run: pnpm --filter @resume/api build
+
+      # pnpm deploy 把 api 包 + 生产依赖平铺成自包含目录（dist、drizzle、node_modules、ecosystem.config.cjs）
+      - name: Assemble deploy directory (pnpm deploy)
+        run: |
+          rm -rf deploy/api
+          pnpm --filter @resume/api deploy --legacy --prod deploy/api
+
+      # rsync 同步 deploy/api 内容到服务器（--delete 保证与本地一致，EXCLUDE 保护服务器上的 .env），
+      # 随后在服务器执行迁移并重启 pm2；SCRIPT_AFTER_REQUIRED 确保远程脚本失败会让 job 失败
+      - name: Deploy via rsync + remote restart
+        uses: easingthemes/ssh-deploy@v6.0.3
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
+          REMOTE_USER: ${{ secrets.DEPLOY_USER }}
+          REMOTE_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          SOURCE: "deploy/api/"
+          TARGET: ${{ vars.API_DEPLOY_DIR }}
+          ARGS: "-rlgoDzvc -i --delete"
+          EXCLUDE: ".env"
+          SCRIPT_AFTER_REQUIRED: "true"
+          SCRIPT_AFTER: |
+            set -euo pipefail
+            cd ${{ vars.API_DEPLOY_DIR }}
+            command -v node >/dev/null 2>&1 || { echo 'node not found on server PATH'; exit 1; }
+            command -v pm2  >/dev/null 2>&1 || { echo 'pm2 not found on server PATH'; exit 1; }
+            node dist/migrate.mjs
+            pm2 startOrReload ecosystem.config.cjs --update-env
+            pm2 save

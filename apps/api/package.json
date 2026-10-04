@@ -1,0 +1,33 @@
+{
+  "name": "@resume/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.mjs",
+    "start:dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsup",
+    "migrate": "node dist/migrate.mjs"
+  },
+  "dependencies": {
+    "@fastify/cors": "catalog:",
+    "@resume/db": "workspace:*",
+    "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
+    "fastify": "catalog:",
+    "pg": "catalog:"
+  },
+  "files": [
+    "dist",
+    "drizzle",
+    "ecosystem.config.cjs"
+  ],
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsup": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

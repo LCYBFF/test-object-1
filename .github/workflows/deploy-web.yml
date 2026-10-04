@@ -1,0 +1,84 @@
+name: Deploy · Web (no Docker)
+
+# 不使用 Docker：runner 上构建 Nuxt 产物 .output 并暂存成 deploy/web（含 pm2 配置），
+# 再由 easingthemes/ssh-deploy 通过 rsync over SSH 同步到服务器并远程重启 pm2
+# 需要的仓库配置（Settings → Secrets and variables → Actions）：
+#   secrets.SERVER_SSH_KEY  SSH 私钥（PEM 格式，无 passphrase）
+#   secrets.DEPLOY_HOST     服务器地址
+#   secrets.DEPLOY_USER     SSH 用户名
+#   secrets.DEPLOY_PORT     SSH 端口（可选，默认 22）
+#   vars.WEB_DEPLOY_DIR     服务器上 Web 产物目录，如 /opt/resume-web
+# 服务器前置：Node 22 + pm2 + rsync（在非交互式 SSH 的 PATH 中），并在 $WEB_DEPLOY_DIR/.env 配置 NUXT_PUBLIC_API_BASE
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "apps/web/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Web over SSH + pm2
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web (.output)
+        run: pnpm --filter @resume/web run build
+
+      # 暂存成目标布局：deploy/web/.output + deploy/web/ecosystem.config.cjs
+      # .output 自包含（自带运行依赖）；.env 保留在服务器上、由 EXCLUDE 保护
+      - name: Stage deploy directory
+        run: |
+          rm -rf deploy/web
+          mkdir -p deploy/web
+          cp -r apps/web/.output deploy/web/.output
+          cp apps/web/ecosystem.config.cjs deploy/web/ecosystem.config.cjs
+
+      # rsync 同步（--delete 清理远端旧产物，EXCLUDE 保护服务器上的 .env），随后远程重启 pm2
+      - name: Deploy via rsync + remote restart
+        uses: easingthemes/ssh-deploy@v6.0.3
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
+          REMOTE_USER: ${{ secrets.DEPLOY_USER }}
+          REMOTE_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          SOURCE: "deploy/web/"
+          TARGET: ${{ vars.WEB_DEPLOY_DIR }}
+          ARGS: "-rlgoDzvc -i --delete"
+          EXCLUDE: ".env"
+          SCRIPT_AFTER_REQUIRED: "true"
+          SCRIPT_AFTER: |
+            set -euo pipefail
+            cd ${{ vars.WEB_DEPLOY_DIR }}
+            command -v pm2 >/dev/null 2>&1 || { echo 'pm2 not found on server PATH'; exit 1; }
+            set -a
+            if [ -f .env ]; then . ./.env; fi
+            set +a
+            pm2 startOrReload ecosystem.config.cjs --update-env
+            pm2 save
