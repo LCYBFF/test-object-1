@@ -30,5 +30,5 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/drizzle ./apps/api/drizzle
 EXPOSE 3001
-# 先执行数据库迁移（dist 产物自带迁移逻辑与 SQL），再启动 API
-CMD ["sh", "-c", "node apps/api/dist/migrate.mjs && node apps/api/dist/index.mjs"]
+# 先执行数据库迁移与 seed（dist 产物自带逻辑与 SQL），再启动 API；seed 仅在库为空时灌入
+CMD ["sh", "-c", "node apps/api/dist/migrate.mjs && node apps/api/dist/seed.mjs && node apps/api/dist/index.mjs"]

@@ -49,7 +49,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # tsup 把 TS 源码（含 packages/db）打包成 dist/index.mjs + dist/migrate.mjs，
+      # tsup 把 TS 源码（含 packages/db）打包成 dist/index.mjs + dist/migrate.mjs + dist/seed.mjs，
       # drizzle 迁移 SQL 拷贝到 apps/api/drizzle；fastify/pg/drizzle-orm 等保持 external
       - name: Build API bundle
         run: pnpm --filter @resume/api build
@@ -61,7 +61,8 @@ jobs:
           pnpm --filter @resume/api deploy --legacy --prod deploy/api
 
       # rsync 同步 deploy/api 内容到服务器（--delete 保证与本地一致，EXCLUDE 保护服务器上的 .env），
-      # 随后在服务器执行迁移并重启 pm2；SCRIPT_AFTER_REQUIRED 确保远程脚本失败会让 job 失败
+      # 随后在服务器执行迁移 + seed 并重启 pm2；seed 仅在库为空时灌入，不会覆盖线上数据；
+      # SCRIPT_AFTER_REQUIRED 确保远程脚本失败会让 job 失败
       - name: Deploy via rsync + remote restart
         uses: easingthemes/ssh-deploy@v6.0.3
         with:
@@ -80,5 +81,6 @@ jobs:
             command -v node >/dev/null 2>&1 || { echo 'node not found on server PATH'; exit 1; }
             command -v pm2  >/dev/null 2>&1 || { echo 'pm2 not found on server PATH'; exit 1; }
             node dist/migrate.mjs
+            node dist/seed.mjs
             pm2 startOrReload ecosystem.config.cjs --update-env
             pm2 save

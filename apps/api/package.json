@@ -9,7 +9,8 @@
     "start:dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsup",
-    "migrate": "node dist/migrate.mjs"
+    "migrate": "node dist/migrate.mjs",
+    "seed": "node dist/seed.mjs"
   },
   "dependencies": {
     "@fastify/cors": "catalog:",

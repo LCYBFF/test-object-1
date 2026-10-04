@@ -8,7 +8,22 @@ import {
   socialLinks,
 } from "./schema/index";
 
+// 部署时会随迁移一起执行：默认仅在 profiles 为空（首次初始化）时灌入，
+// 避免每次部署清空线上数据；本地需要重置时用 SEED_FORCE=true 强制覆盖
+const force = process.env.SEED_FORCE === "true";
+
 async function seed() {
+  if (!force) {
+    const [existing] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .limit(1);
+    if (existing) {
+      console.log("[db] profiles 已有数据，跳过 seed（如需强制重置请设置 SEED_FORCE=true）");
+      return;
+    }
+  }
+
   await db.transaction(async (tx) => {
     // 清空旧数据，保证可重复执行
     await tx.delete(socialLinks);
