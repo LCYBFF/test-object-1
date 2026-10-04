@@ -1,14 +1,16 @@
 # syntax=docker/dockerfile:1
 
 FROM node:22-slim AS base
+# Docker 构建没有 TTY，pnpm 需要 CI=true 才会在非交互环境下删除 node_modules（pnpm prune --prod）
+ENV CI=true
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 WORKDIR /app
 
-# 只拷贝清单文件，让依赖层可被缓存复用
+# 只拷贝清单与根配置，让依赖层可被缓存复用
 FROM base AS deps
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/db/package.json packages/db/package.json
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
